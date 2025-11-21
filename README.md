@@ -2,6 +2,10 @@
 
 Fun with SAM3
 
+## UI Preview
+
+![SAM3 Playground UI](ui.png)
+
 ## Setup
 
 ### Prerequisites
@@ -29,7 +33,7 @@ Fun with SAM3
    ```
 
 ## Quickstart
-- Start UI: `uvicorn sam3.ui:app --reload --app-dir src`
+- Start UI: `uvicorn sam3.ui:app --reload`
 
 
 ## UI info
