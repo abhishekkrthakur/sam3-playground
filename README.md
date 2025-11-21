@@ -11,7 +11,7 @@ Fun with SAM3
    source .venv/bin/activate
    ```
 
-2. Export your Hugging Face token:
+2. Export your Hugging Face token that has access to SAM3 model files:
    ```bash
    export HF_TOKEN=your_token_here
    ```
