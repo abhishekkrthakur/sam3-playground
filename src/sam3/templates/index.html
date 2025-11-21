@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAM3 Playground</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}?v=4.5.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- LEFT SIDEBAR: SAM3 CONTROLS -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="logo">
+                    <span class="logo__icon">SAM3</span>
+                    <h1>Playground</h1>
+                </div>
+            </div>
+
+            <div class="sidebar__content">
+                <form id="seg-form" class="form" novalidate data-process-url="{{ request.url_for('process_image') }}">
+                    
+                    <!-- 1. Upload State -->
+                    <div class="control-group" id="upload-group">
+                        <label class="group-label">Input Image</label>
+                        <div class="file-drop-area">
+                            <input type="file" id="image" name="image" accept="image/*" required>
+                            <div class="file-msg">
+                                <div class="icon-box">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                </div>
+                                <span>Click to Upload</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Active Image State -->
+                    <div class="control-group" id="thumbnail-group" style="display:none;">
+                        <div class="group-header">
+                            <label class="group-label">Active Image</label>
+                            <button type="button" class="btn-link-danger" id="remove-image">Change Image</button>
+                        </div>
+                        
+                        <div class="thumbnail-wrapper" id="open-editor-btn">
+                            <img id="sidebar-thumb" alt="Input thumbnail" />
+                            <div class="thumbnail-overlay">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.5l-2 6a2 2 0 0 0 2 2l6-2a2 2 0 0 0 .5-.5l13.332-13.362Z"/><path d="m15 5 4 4"/></svg>
+                                <span>Draw Boxes</span>
+                            </div>
+                        </div>
+                        <div class="helper-text">
+                            <span class="badge">Tip</span> Click image to draw bounding boxes
+                        </div>
+                    </div>
+
+                    <!-- 3. Prompt -->
+                    <div class="control-group">
+                        <label class="group-label" for="prompt">Text Prompt</label>
+                        <textarea id="prompt" name="prompt" rows="2" placeholder="e.g., red car, person..."></textarea>
+                    </div>
+
+                    <!-- 4. Parameters -->
+                    <div class="control-group">
+                        <div class="slider-container">
+                            <div class="slider-header">
+                                <span>Score Threshold</span>
+                                <span class="slider-value" data-threshold-value>0.50</span>
+                            </div>
+                            <input type="range" id="threshold" name="threshold" min="0" max="1" step="0.05" value="0.5">
+                        </div>
+                        <div class="slider-container">
+                            <div class="slider-header">
+                                <span>Mask Threshold</span>
+                                <span class="slider-value" data-mask-threshold-value>0.50</span>
+                            </div>
+                            <input type="range" id="mask_threshold" name="mask_threshold" min="0" max="1" step="0.05" value="0.5">
+                        </div>
+                    </div>
+
+                    <!-- 5. Box List -->
+                    <div class="control-group box-section">
+                        <div class="box-header">
+                            <label class="group-label">Active Boxes</label>
+                            <button type="button" class="btn-text" id="clear-boxes">Clear</button>
+                        </div>
+                        <div class="box-list-container" id="box-list">
+                            <p class="muted-text">No boxes added.</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="sidebar__footer">
+                <button type="submit" form="seg-form" id="submit-btn" class="btn-primary" disabled>
+                    Generate Segmentation
+                </button>
+                <p class="status-bar" id="status">Waiting for input...</p>
+            </div>
+        </aside>
+
+        <!-- MAIN VIEWPORT -->
+        <main class="viewport">
+            <div class="loading-overlay" id="loading-overlay">
+                <div class="spinner"></div>
+                <p>Running SAM3 Model...</p>
+            </div>
+
+            <div class="viewport__toolbar">
+                <div class="tabs" role="tablist">
+                    <button type="button" class="tab is-active" data-preview-tab="masks">Masks</button>
+                    <button type="button" class="tab" data-preview-tab="boxes">Boxes</button>
+                </div>
+            </div>
+
+            <div class="stage">
+                
+                <!-- 1. Masks Tab (Original Behavior: Shows composite result) -->
+                <div class="stage__layer is-visible" data-preview-slide="masks">
+                    <div class="canvas-wrapper">
+                        <!-- This IMG tag receives the server-generated composite mask overlay -->
+                        <img data-preview-image="masks" alt="Mask overlay" />
+                        
+                        <div class="empty-state" id="masks-empty">
+                            <div class="empty-icon">🖼️</div>
+                            <h3>No Results Yet</h3>
+                            <p>Upload an image and click Generate to see masks.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 2. Boxes Tab (Original Behavior) -->
+                <div class="stage__layer" data-preview-slide="boxes">
+                    <div class="canvas-wrapper">
+                        <!-- Base image -->
+                        <img data-preview-image="boxes" alt="Bounding box overlay" />
+                        <!-- Canvas for drawing boxes client-side -->
+                        <canvas id="result-box-canvas"></canvas>
+                        
+                         <div class="empty-state" id="boxes-empty">
+                            <div class="empty-icon">📦</div>
+                            <h3>No Results Yet</h3>
+                            <p>Generated bounding boxes will appear here.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- EDITOR MODAL (Input Boxes) -->
+    <div class="modal" id="editor-modal">
+        <div class="modal__header">
+            <h2>Draw Bounding Boxes</h2>
+            <div class="modal__actions">
+                <span class="modal__hint">Click & Drag to draw</span>
+                <button type="button" class="btn-close" id="close-modal">Done</button>
+            </div>
+        </div>
+        <div class="modal__body">
+            <div class="editor-stage" id="input-preview-wrapper">
+                <img id="input-preview" alt="" />
+                <canvas id="box-canvas"></canvas>
+                
+                <div id="box-context-menu" class="context-menu">
+                    <div class="context-menu__title">Label this box:</div>
+                    <div class="context-menu__actions">
+                        <button type="button" class="ctx-btn positive" data-choice="1">Positive (1)</button>
+                        <button type="button" class="ctx-btn negative" data-choice="0">Negative (0)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="{{ url_for('static', path='app.js') }}?v=4.5.0"></script>
+</body>
+</html>
