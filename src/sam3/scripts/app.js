@@ -7,7 +7,7 @@ const thumbnailGroup = document.getElementById("thumbnail-group");
 const removeImageBtn = document.getElementById("remove-image");
 const sidebarThumb = document.getElementById("sidebar-thumb");
 const openEditorBtn = document.getElementById("open-editor-btn");
-const sidebarVideo = document.getElementById("sidebar-video");
+let sidebarVideo = document.getElementById("sidebar-video");
 
 // Inputs
 const promptInput = document.getElementById("prompt");
@@ -147,6 +147,8 @@ const resetBoxes = () => {
 
 const resetImage = () => {
   currentImageSrc = "";
+  currentFileType = "";
+  updateActiveMediaLabel();
   if (imageInput) imageInput.value = "";
   if (sidebarThumb) sidebarThumb.removeAttribute("src");
   if (sidebarThumb) sidebarThumb.style.display = "";
@@ -260,6 +262,7 @@ if (imageInput) {
       } else {
         currentFileType = "";
       }
+      updateActiveMediaLabel();
       loadImage(file);
     }
   });
@@ -627,3 +630,16 @@ if (thresholdInput)
   thresholdInput.addEventListener("input", updateSliderLabels);
 if (maskThresholdInput)
   maskThresholdInput.addEventListener("input", updateSliderLabels);
+
+function updateActiveMediaLabel() {
+  const label = document.getElementById("active-media-label");
+  const removeBtn = document.getElementById("remove-image");
+  if (!label) return;
+  if (currentFileType === "video") {
+    label.textContent = "Active Video";
+    removeBtn.textContent = "Remove Video";
+  } else {
+    label.textContent = "Active Image";
+    removeBtn.textContent = "Remove Image";
+  }
+}

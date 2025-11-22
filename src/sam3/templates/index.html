@@ -1,15 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SAM3 Playground</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}?v=4.5.0">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-</head>
-<body>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='styles.css') }}?v=4.5.0"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
     <div class="app-layout">
       <!-- LEFT SIDEBAR: SAM3 CONTROLS -->
       <aside class="sidebar">
@@ -68,9 +74,11 @@
               style="display: none"
             >
               <div class="group-header">
-                <label class="group-label">Active Image</label>
+                <label class="group-label" id="active-media-label"
+                  >Active Image</label
+                >
                 <button type="button" class="btn-link-danger" id="remove-image">
-                  Change Image
+                  Remove Image
                 </button>
               </div>
 
@@ -205,8 +213,6 @@
               <img data-preview-image="masks" alt="Mask overlay" />
 
               <div class="empty-state" id="masks-empty">
-                <div class="empty-icon">🖼️</div>
-                <h3>No Results Yet</h3>
                 <p>Upload an image and click Generate to see masks.</p>
               </div>
             </div>
@@ -221,8 +227,6 @@
               <canvas id="result-box-canvas"></canvas>
 
               <div class="empty-state" id="boxes-empty">
-                <div class="empty-icon">📦</div>
-                <h3>No Results Yet</h3>
                 <p>Generated bounding boxes will appear here.</p>
               </div>
             </div>
