@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+import cv2
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
@@ -185,6 +186,46 @@ async def process_image(
         _process_image, pil_image, prompt, threshold, mask_threshold, boxes_list, box_labels
     )
     return JSONResponse({"status": "ok", **payload})
+
+
+@app.post("/process-video", tags=["inference"])
+async def process_video(
+    video: UploadFile = File(...),
+    prompt: str = Form(None),
+    threshold: float = Form(0.5),
+    mask_threshold: float = Form(0.5),
+):
+    """Handle video uploads and return segmentation masks for each frame."""
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+        tmp.write(await video.read())
+        tmp_path = tmp.name
+
+    cap = cv2.VideoCapture(tmp_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    print(f"Total frames in video: {total_frames}, fps: {fps}")
+
+    frame_results = []
+    frame_idx = 0
+    success, frame = cap.read()
+    while success and frame_idx < 10:
+        pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        payload = await run_in_threadpool(
+            _process_image, pil_image, prompt or "object", threshold, mask_threshold, [], []
+        )
+        frame_results.append({
+            "frame": frame_idx,
+            "mask_image": payload["mask_image"],
+            "image": payload["image"],
+        })
+        frame_idx += 1
+        success, frame = cap.read()
+    cap.release()
+    
+    print(f"vsp: Finished processing {frame_idx} frames for video prompt '{prompt}'")
+
+    return JSONResponse({"status": "ok", "frames": frame_results})
 
 
 @app.get("/healthz", tags=["meta"])

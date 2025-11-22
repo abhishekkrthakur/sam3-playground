@@ -10,31 +10,32 @@ Fun with SAM3
 
 ### Prerequisites
 1. Create and activate a virtual environment with uv:
-   ```bash
+
+   ```
    uv venv
-   source .venv/bin/activate
+   .venv\Scripts\activate
    ```
 
 2. Export your Hugging Face token that has access to SAM3 model files:
-   ```bash
-   export HF_TOKEN=your_token_here
+
+   ```
+   $env:HF_TOKEN="<your_huggingface_token>"
    ```
 
-3. Install transformers from git:
-   ```bash
-   uv pip install git+https://github.com/huggingface/transformers.git
+3. Install all dependencies listed in pyproject.toml
+
+   ```
+   uv sync
    ```
 
-4. Run `uv sync`
-
-5. Install project dependencies (editable):
-   ```bash
+4. Install project as package for development:
+   ```
    uv pip install -e .
    ```
 
 ## Quickstart
-- Start UI: `uvicorn sam3.ui:app --reload`
 
+- Start UI: `uvicorn sam3.ui:app --reload`
 
 ## UI info
 

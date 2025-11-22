@@ -16,6 +16,8 @@ dependencies = [
     "torch>=2.9.1",
     "torchvision>=0.24.1",
     "uvicorn>=0.32.0",
+    "opencv-python>=4.9.0",
+    "transformers @ git+https://github.com/huggingface/transformers.git",
 ]
 
 [build-system]
@@ -24,3 +26,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sam3"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

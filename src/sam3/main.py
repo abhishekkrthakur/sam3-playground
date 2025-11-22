@@ -49,11 +49,17 @@ def run_inference(
         if len(labels) < len(boxes):
             labels = labels + [1] * (len(boxes) - len(labels))
         input_kwargs["input_boxes_labels"] = [labels[: len(boxes)]]
+        
+    print("=== SAM3 MODEL INPUT ===")
+    print("input_kwargs:", input_kwargs)
+    print("========================")
 
     inputs = processor(**input_kwargs).to(device)
 
     with torch.no_grad():
         outputs = model(**inputs)
+        print("=== SAM3 MODEL OUTPUT ===")
+        print("=========================")
 
     result = processor.post_process_instance_segmentation(
         outputs,

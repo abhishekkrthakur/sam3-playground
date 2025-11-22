@@ -7,13 +7,16 @@ const thumbnailGroup = document.getElementById("thumbnail-group");
 const removeImageBtn = document.getElementById("remove-image");
 const sidebarThumb = document.getElementById("sidebar-thumb");
 const openEditorBtn = document.getElementById("open-editor-btn");
+const sidebarVideo = document.getElementById("sidebar-video");
 
 // Inputs
 const promptInput = document.getElementById("prompt");
 const thresholdInput = document.getElementById("threshold");
 const maskThresholdInput = document.getElementById("mask_threshold");
 const thresholdValue = document.querySelector("[data-threshold-value]");
-const maskThresholdValue = document.querySelector("[data-mask-threshold-value]");
+const maskThresholdValue = document.querySelector(
+  "[data-mask-threshold-value]"
+);
 
 // Status + overlays
 const statusEl = document.getElementById("status");
@@ -58,12 +61,17 @@ let startPoint = null;
 let latestResultBoxes = [];
 let activeRequestId = 0;
 let currentImageSrc = "";
+let currentFileType = "";
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
 const updateSliderLabels = () => {
-  if (thresholdValue) thresholdValue.textContent = Number(thresholdInput.value).toFixed(2);
-  if (maskThresholdValue) maskThresholdValue.textContent = Number(maskThresholdInput.value).toFixed(2);
+  if (thresholdValue)
+    thresholdValue.textContent = Number(thresholdInput.value).toFixed(2);
+  if (maskThresholdValue)
+    maskThresholdValue.textContent = Number(maskThresholdInput.value).toFixed(
+      2
+    );
 };
 
 const setStatus = (message, isError = false) => {
@@ -89,7 +97,8 @@ const setLoading = (
   if (!button) return;
 
   if (isLoading) {
-    button.dataset.idleText = button.dataset.idleText || button.textContent || idleText;
+    button.dataset.idleText =
+      button.dataset.idleText || button.textContent || idleText;
     button.disabled = true;
     button.textContent = busyText;
   } else {
@@ -140,6 +149,12 @@ const resetImage = () => {
   currentImageSrc = "";
   if (imageInput) imageInput.value = "";
   if (sidebarThumb) sidebarThumb.removeAttribute("src");
+  if (sidebarThumb) sidebarThumb.style.display = "";
+  if (sidebarVideo) {
+    sidebarVideo.pause();
+    sidebarVideo.removeAttribute("src");
+    sidebarVideo.style.display = "none";
+  }
   if (inputPreview) inputPreview.removeAttribute("src");
   naturalSize = { width: null, height: null };
   resetResultState();
@@ -177,6 +192,46 @@ const loadImage = (file) => {
   if (!file) return;
   resetResultState();
 
+  if (currentFileType === "video") {
+    if (!sidebarVideo) {
+      sidebarVideo = document.createElement("video");
+      sidebarVideo.id = "sidebar-video";
+      sidebarVideo.controls = true;
+      sidebarVideo.style.maxWidth = "100%";
+      sidebarVideo.style.display = "block";
+      if (sidebarThumb && sidebarThumb.parentNode) {
+        sidebarThumb.parentNode.insertBefore(
+          sidebarVideo,
+          sidebarThumb.nextSibling
+        );
+      }
+    }
+    if (sidebarThumb) sidebarThumb.style.display = "none";
+    sidebarVideo.style.display = "block";
+    const videoUrl = URL.createObjectURL(file);
+    sidebarVideo.src = videoUrl;
+    sidebarVideo.load();
+
+    sidebarVideo.onended = sidebarVideo.onpause = () => {
+      URL.revokeObjectURL(videoUrl);
+    };
+
+    if (inputPreview) inputPreview.style.display = "none";
+    setStatus("Ready.");
+    showEmptyState(boxesEmptyState, false);
+    toggleUploadState(true);
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  } else {
+    if (sidebarVideo) {
+      sidebarVideo.pause();
+      sidebarVideo.removeAttribute("src");
+      sidebarVideo.style.display = "none";
+    }
+    if (sidebarThumb) sidebarThumb.style.display = "";
+    if (inputPreview) inputPreview.style.display = "";
+  }
+
   const reader = new FileReader();
   reader.onload = (event) => {
     currentImageSrc = event.target.result;
@@ -197,7 +252,16 @@ const loadImage = (file) => {
 if (imageInput) {
   imageInput.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
-    if (file) loadImage(file);
+    if (file) {
+      if (file.type.startsWith("image/")) {
+        currentFileType = "image";
+      } else if (file.type.startsWith("video/")) {
+        currentFileType = "video";
+      } else {
+        currentFileType = "";
+      }
+      loadImage(file);
+    }
   });
 }
 
@@ -262,7 +326,9 @@ const renderBoxes = (currentDrag = null) => {
       const isNeg = Number(box.label) === 0;
       ctx.strokeStyle = isNeg ? "#ef4444" : "#22c55e";
       ctx.setLineDash(isNeg ? [4, 4] : []);
-      ctx.fillStyle = isNeg ? "rgba(239, 68, 68, 0.15)" : "rgba(34, 197, 94, 0.15)";
+      ctx.fillStyle = isNeg
+        ? "rgba(239, 68, 68, 0.15)"
+        : "rgba(34, 197, 94, 0.15)";
       ctx.fillRect(x1, y1, ww, hh);
     }
     ctx.strokeRect(x1, y1, ww, hh);
@@ -419,6 +485,28 @@ const drawResultBoxes = () => {
 const applyResult = (data) => {
   resetResultState();
 
+  if (Array.isArray(data.frames)) {
+    let idx = 0;
+    const frames = data.frames;
+    const masksImg = previewImages["masks"];
+    if (!masksImg) return;
+    showEmptyState(masksEmptyState, false);
+
+    if (window._sam3VideoAnim) clearInterval(window._sam3VideoAnim);
+
+    window._sam3VideoAnim = setInterval(() => {
+      const frame = frames[idx % frames.length];
+      if (frame && frame.image) {
+        masksImg.src = `data:image/png;base64,${frame.image}`;
+        masksImg.style.display = "block";
+      }
+      idx++;
+    }, 150); // ~7 FPS
+
+    setStatus(`Processed ${frames.length} video frames. Playing animation.`);
+    return;
+  }
+
   const masksImg = previewImages["masks"];
   if (data.image && masksImg) {
     masksImg.src = `data:image/png;base64,${data.image}`;
@@ -444,7 +532,9 @@ const applyResult = (data) => {
 
   drawResultBoxes();
   setActiveTab("masks");
-  setStatus(data.count ? `Found ${data.count} regions.` : "Inference complete.");
+  setStatus(
+    data.count ? `Found ${data.count} regions.` : "Inference complete."
+  );
 };
 
 if (form) {
@@ -460,8 +550,12 @@ if (form) {
     setLoading(true);
     setStatus("Running model...");
 
+    const isVideo = currentFileType === "video";
     const formData = new FormData();
-    formData.append("image", imageInput.files[0]);
+    const fileFieldName = isVideo ? "video" : "image";
+    formData.append(fileFieldName, imageInput.files[0]);
+
+    formData.append(fileFieldName, imageInput.files[0]);
     formData.append("prompt", promptInput?.value || "");
     formData.append("threshold", thresholdInput.value);
     formData.append("mask_threshold", maskThresholdInput.value);
@@ -476,8 +570,17 @@ if (form) {
       formData.append("boxes", JSON.stringify(payload));
     }
 
+    const url =
+      (form?.dataset?.processUrl && !isVideo
+        ? form.dataset.processUrl
+        : null) || (isVideo ? "/process-video" : "/process");
+
     try {
-      const res = await fetch(processUrl, { method: "POST", body: formData, cache: "no-store" });
+      const res = await fetch(url, {
+        method: "POST",
+        body: formData,
+        cache: "no-store",
+      });
       const data = await res.json();
       if (requestId !== activeRequestId) return;
       if (data.status === "ok") {
@@ -520,5 +623,7 @@ window.addEventListener("resize", () => {
 });
 
 updateSliderLabels();
-if (thresholdInput) thresholdInput.addEventListener("input", updateSliderLabels);
-if (maskThresholdInput) maskThresholdInput.addEventListener("input", updateSliderLabels);
+if (thresholdInput)
+  thresholdInput.addEventListener("input", updateSliderLabels);
+if (maskThresholdInput)
+  maskThresholdInput.addEventListener("input", updateSliderLabels);
