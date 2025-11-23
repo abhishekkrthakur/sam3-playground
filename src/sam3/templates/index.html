@@ -84,7 +84,7 @@
 
               <div class="thumbnail-wrapper" id="open-editor-btn">
                 <img id="sidebar-thumb" alt="Input thumbnail" />
-                <div class="thumbnail-overlay">
+                <div class="thumbnail-overlay" id="draw-boxes-overlay">
                   <svg
                     width="24"
                     height="24"
@@ -101,7 +101,7 @@
                   <span>Draw Boxes</span>
                 </div>
               </div>
-              <div class="helper-text">
+              <div class="helper-text" id="helper-text">
                 <span class="badge">Tip</span> Click image to draw bounding
                 boxes
               </div>
@@ -109,7 +109,9 @@
 
             <!-- 3. Prompt -->
             <div class="control-group">
-              <label class="group-label" for="prompt">Text Prompt</label>
+              <label class="group-label" for="prompt" style="margin-top: 8px"
+                >Text Prompt</label
+              >
               <textarea
                 id="prompt"
                 name="prompt"
@@ -119,7 +121,7 @@
             </div>
 
             <!-- 4. Parameters -->
-            <div class="control-group">
+            <!-- <div class="control-group">
               <div class="slider-container">
                 <div class="slider-header">
                   <span>Score Threshold</span>
@@ -152,10 +154,10 @@
                   value="0.5"
                 />
               </div>
-            </div>
+            </div> -->
 
             <!-- 5. Box List -->
-            <div class="control-group box-section">
+            <!-- <div class="control-group box-section">
               <div class="box-header">
                 <label class="group-label">Active Boxes</label>
                 <button type="button" class="btn-text" id="clear-boxes">
@@ -165,7 +167,7 @@
               <div class="box-list-container" id="box-list">
                 <p class="muted-text">No boxes added.</p>
               </div>
-            </div>
+            </div> -->
           </form>
         </div>
 
@@ -179,6 +181,35 @@
           >
             Generate Segmentation
           </button>
+          <div id="video-progress-bar" style="display: none; margin-top: 8px">
+            <div
+              style="
+                background: #eee;
+                border-radius: 4px;
+                height: 12px;
+                width: 100%;
+              "
+            >
+              <div
+                id="video-progress-fill"
+                style="
+                  background: #6366f1;
+                  height: 100%;
+                  width: 0%;
+                  border-radius: 4px;
+                  transition: width 0.2s;
+                "
+              ></div>
+            </div>
+            <div
+              id="video-progress-label"
+              style="
+                font-size: 0.9em;
+                margin-top: 2px;
+                color: var(--text-muted);
+              "
+            ></div>
+          </div>
           <div
             id="generation-stats"
             class="generation-stats"

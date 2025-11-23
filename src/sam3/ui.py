@@ -223,9 +223,32 @@ async def process_video(
         success, frame = cap.read()
     cap.release()
     
-    print(f"vsp: Finished processing {frame_idx} frames for video prompt '{prompt}'")
+    print(f"Finished processing {frame_idx} frames for video prompt '{prompt}'")
 
-    return JSONResponse({"status": "ok", "frames": frame_results})
+    return JSONResponse({
+        "status": "ok",
+        "frames": frame_results,
+        "total_frames": total_frames,
+        "fps": fps
+    })
+
+
+@app.post("/video-metadata", tags=["inference"])
+async def video_metadata(
+    video: UploadFile = File(...)
+):
+    import cv2
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+        tmp.write(await video.read())
+        tmp_path = tmp.name
+
+    cap = cv2.VideoCapture(tmp_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    duration = total_frames / fps if fps else 0
+    cap.release()
+    return {"total_frames": total_frames, "fps": fps, "duration": duration}
 
 
 @app.get("/healthz", tags=["meta"])

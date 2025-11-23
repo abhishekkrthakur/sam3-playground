@@ -42,6 +42,11 @@ const resultBoxCanvas = document.getElementById("result-box-canvas");
 const masksEmptyState = document.getElementById("masks-empty");
 const boxesEmptyState = document.getElementById("boxes-empty");
 
+const statsEl = document.getElementById("generation-stats");
+const videoProgressBar = document.getElementById("video-progress-bar");
+const videoProgressFill = document.getElementById("video-progress-fill");
+const videoProgressLabel = document.getElementById("video-progress-label");
+
 const previewImages = {};
 previewSlides.forEach((slide) => {
   const type = slide.dataset.previewSlide;
@@ -62,6 +67,7 @@ let latestResultBoxes = [];
 let activeRequestId = 0;
 let currentImageSrc = "";
 let currentFileType = "";
+let currentAbortController = null;
 
 const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
@@ -146,8 +152,17 @@ const resetBoxes = () => {
 };
 
 const resetImage = () => {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
   currentImageSrc = "";
   currentFileType = "";
+  if (promptInput) promptInput.value = "";
+  if (statsEl) statsEl.textContent = "";
+  if (videoProgressBar) videoProgressBar.style.display = "none";
+  if (videoProgressFill) videoProgressFill.style.width = "0%";
+  if (videoProgressLabel) videoProgressLabel.textContent = "";
   updateActiveMediaLabel();
   if (imageInput) imageInput.value = "";
   if (sidebarThumb) sidebarThumb.removeAttribute("src");
@@ -263,7 +278,21 @@ if (imageInput) {
         currentFileType = "";
       }
       updateActiveMediaLabel();
+      updateDrawBoxesOverlay();
+      updateHelperText();
       loadImage(file);
+
+      if (file.type.startsWith("video/")) {
+        if (statsEl) statsEl.textContent = "Loading video metadata...";
+        fetchVideoMetadata(file).then((meta) => {
+          if (statsEl) {
+            statsEl.textContent =
+              `Video length: ${meta.duration.toFixed(2)}s | ` +
+              `Total frames: ${meta.total_frames} | ` +
+              `fps: ${meta.fps.toFixed(2)}`;
+          }
+        });
+      }
     }
   });
 }
@@ -495,6 +524,10 @@ const applyResult = (data) => {
     if (!masksImg) return;
     showEmptyState(masksEmptyState, false);
 
+    const totalFrames = data.total_frames || frames.length;
+
+    if (videoProgressBar) videoProgressBar.style.display = "block";
+
     if (window._sam3VideoAnim) clearInterval(window._sam3VideoAnim);
 
     window._sam3VideoAnim = setInterval(() => {
@@ -504,9 +537,25 @@ const applyResult = (data) => {
         masksImg.style.display = "block";
       }
       idx++;
-    }, 150); // ~7 FPS
 
-    setStatus(`Processed ${frames.length} video frames. Playing animation.`);
+      if (videoProgressFill && videoProgressLabel) {
+        const percent = Math.min(100, (idx / totalFrames) * 100);
+        videoProgressFill.style.width = percent + "%";
+        videoProgressLabel.textContent = `Frame ${Math.min(
+          idx,
+          totalFrames
+        )} of ${totalFrames}`;
+      }
+
+      if (idx >= frames.length) {
+        idx = 0;
+        setStatus(
+          `Processed ${frames.length} of ${totalFrames} video frames.`
+        );
+      }
+    }, 150);
+
+    setStatus(`Processing ${frames.length} of ${totalFrames} video frames...`);
     return;
   }
 
@@ -543,6 +592,12 @@ const applyResult = (data) => {
 if (form) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+
     if (!imageInput?.files?.length) {
       setStatus("Please select an image.", true);
       return;
@@ -561,8 +616,11 @@ if (form) {
 
     formData.append(fileFieldName, imageInput.files[0]);
     formData.append("prompt", promptInput?.value || "");
-    formData.append("threshold", thresholdInput.value);
-    formData.append("mask_threshold", maskThresholdInput.value);
+    formData.append("threshold", thresholdInput ? thresholdInput.value : "0.5");
+    formData.append(
+      "mask_threshold",
+      maskThresholdInput ? maskThresholdInput.value : "0.5"
+    );
 
     if (boxes.length && naturalSize.width && naturalSize.height) {
       const w = naturalSize.width;
@@ -584,15 +642,16 @@ if (form) {
         method: "POST",
         body: formData,
         cache: "no-store",
+        signal,
       });
       const data = await res.json();
 
       const endTime = performance.now();
       const elapsed = (endTime - startTime) / 1000;
 
-      const statsEl = document.getElementById("generation-stats");
       if (statsEl) {
-        statsEl.textContent = `Generation time: ${elapsed.toFixed(2)}s`;
+        const genTimeText = `Generation time: ${elapsed.toFixed(2)}s`;
+        statsEl.textContent += (statsEl.textContent ? "\n" : "") + genTimeText;
       }
 
       if (requestId !== activeRequestId) return;
@@ -604,7 +663,6 @@ if (form) {
     } catch (err) {
       console.error(err);
       if (requestId !== activeRequestId) return;
-      setStatus("Error processing image.", true);
     } finally {
       if (requestId !== activeRequestId) return;
       setLoading(false);
@@ -644,7 +702,7 @@ if (maskThresholdInput)
 function updateActiveMediaLabel() {
   const label = document.getElementById("active-media-label");
   const removeBtn = document.getElementById("remove-image");
-  if (!label) return;
+  if (!label || !removeBtn) return;
   if (currentFileType === "video") {
     label.textContent = "Active Video";
     removeBtn.textContent = "Remove Video";
@@ -652,4 +710,30 @@ function updateActiveMediaLabel() {
     label.textContent = "Active Image";
     removeBtn.textContent = "Remove Image";
   }
+}
+
+function updateDrawBoxesOverlay() {
+  const overlay = document.getElementById("draw-boxes-overlay");
+  if (!overlay) return;
+  if (currentFileType === "video") {
+    overlay.style.display = "none";
+  } else {
+    overlay.style.display = "";
+  }
+}
+
+function updateHelperText() {
+  const helperText = document.getElementById("helper-text");
+  if (!helperText) return;
+  helperText.style.display = currentFileType === "video" ? "none" : "";
+}
+
+async function fetchVideoMetadata(file) {
+  const formData = new FormData();
+  formData.append("video", file);
+  const res = await fetch("/video-metadata", {
+    method: "POST",
+    body: formData,
+  });
+  return res.json();
 }
