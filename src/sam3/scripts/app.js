@@ -552,6 +552,7 @@ if (form) {
     resetResultState();
     setLoading(true);
     setStatus("Running model...");
+    const startTime = performance.now();
 
     const isVideo = currentFileType === "video";
     const formData = new FormData();
@@ -585,6 +586,15 @@ if (form) {
         cache: "no-store",
       });
       const data = await res.json();
+
+      const endTime = performance.now();
+      const elapsed = (endTime - startTime) / 1000;
+
+      const statsEl = document.getElementById("generation-stats");
+      if (statsEl) {
+        statsEl.textContent = `Generation time: ${elapsed.toFixed(2)}s`;
+      }
+
       if (requestId !== activeRequestId) return;
       if (data.status === "ok") {
         applyResult(data);
